@@ -29,6 +29,7 @@ import {
 } from './data/market.js';
 import { INCOME_START_SPACE } from './data/income.js';
 import { createRng } from './rng.js';
+import { soloHand } from './solo-hand.js';
 
 export interface PlacedTile {
   tile: TileDef;
@@ -59,6 +60,8 @@ export interface PlayerState {
   incomeSpace: number;
   vp: number;
   spentThisRound: number;
+  /** Solo 变体（rules.solo）专用：许可证数（合成 Wild Location 卡张数）。仅 solo 写入。 */
+  permits?: number;
 }
 
 export type MerchantTile = 'any' | 'cotton' | 'manufacturer' | 'pottery' | 'blank';
@@ -67,10 +70,16 @@ export type MerchantTile = 'any' | 'cotton' | 'manufacturer' | 'pottery' | 'blan
 export interface GameRules {
   /** 资源板块由内层产线逐步交付（deposit → resources），建造时不放满、不卖市场。 */
   innerLayer: boolean;
+  /**
+   * Solo 变体（spec 2026-11-05 §1）：1 人、合成手牌、NPC 需求、每时代 8 轮。
+   * 仅 solo 局写入 true；非 solo 局不写该字段（undefined 视为 false），保持序列化兼容。
+   */
+  solo?: boolean;
 }
 
 export interface GameState {
-  playerCount: 2 | 3 | 4;
+  /** 1 仅在 rules.solo 下出现。 */
+  playerCount: 1 | 2 | 3 | 4;
   rules: GameRules;
   era: Era;
   /** 从 1 起。 */
@@ -136,28 +145,49 @@ function playerTileStacks(): TileDef[] {
   return out;
 }
 
+/**
+ * 新开一局。playerCount 1 仅在 opts.solo 下允许（solo 也只允许 1 人）。
+ * Solo：版图按 2 人设置（商人位/商人板块池），牌堆与弃牌堆为空，手牌为合成卡
+ * （见 solo-hand.ts），players[0].permits = 0；不消耗洗牌用 rng（商人板块与顺位照常洗）。
+ */
 export function newGame(
-  playerCount: 2 | 3 | 4,
+  playerCount: 1 | 2 | 3 | 4,
   seed: number,
-  opts?: { innerLayer?: boolean },
+  opts?: { innerLayer?: boolean; solo?: boolean },
 ): GameState {
+  const isSolo = opts?.solo === true;
+  if (isSolo !== (playerCount === 1)) {
+    throw new RangeError(
+      isSolo
+        ? `newGame: solo requires playerCount 1, got ${playerCount}`
+        : 'newGame: playerCount 1 is only allowed with { solo: true }',
+    );
+  }
   const rng = createRng(seed);
+  const boardCount: 2 | 3 | 4 = playerCount === 1 ? 2 : playerCount;
 
   // 1. 牌堆：洗牌 → 发 8 张/人 → 每位玩家各 1 张弃牌堆底（规则书 p.5 步骤 9）
-  const shuffled = rng.shuffle(buildDeck(playerCount));
-  let cursor = 0;
+  //    solo：无牌堆，手牌为合成卡
   const hands: Card[][] = [];
-  for (let i = 0; i < playerCount; i++) {
-    hands.push(shuffled.slice(cursor, cursor + HAND_SIZE));
-    cursor += HAND_SIZE;
+  let discard: Card[] = [];
+  let deck: Card[] = [];
+  if (isSolo) {
+    hands.push(soloHand(0));
+  } else {
+    const shuffled = rng.shuffle(buildDeck(boardCount));
+    let cursor = 0;
+    for (let i = 0; i < playerCount; i++) {
+      hands.push(shuffled.slice(cursor, cursor + HAND_SIZE));
+      cursor += HAND_SIZE;
+    }
+    discard = shuffled.slice(cursor, cursor + playerCount);
+    cursor += playerCount;
+    deck = shuffled.slice(cursor);
   }
-  const discard = shuffled.slice(cursor, cursor + playerCount);
-  cursor += playerCount;
-  const deck = shuffled.slice(cursor);
 
   // 2. 商人板块：洗混后按 MERCHANTS 键序铺位；啤酒桶按板块格绑定（每非 blank 格 1 桶）
-  const tiles = rng.shuffle(merchantTilePool(playerCount));
-  const available = new Set(availableMerchants(playerCount));
+  const tiles = rng.shuffle(merchantTilePool(boardCount));
+  const available = new Set(availableMerchants(boardCount));
   const merchants = {} as Record<MerchantId, { tiles: MerchantTile[]; barrels: boolean[] }>;
   let t = 0;
   for (const id of Object.keys(MERCHANTS) as MerchantId[]) {
@@ -190,11 +220,12 @@ export function newGame(
     incomeSpace: INCOME_START_SPACE,
     vp: 0,
     spentThisRound: 0,
+    ...(isSolo ? { permits: 0 } : {}),
   }));
 
   return {
     playerCount,
-    rules: { innerLayer: opts?.innerLayer === true },
+    rules: { innerLayer: opts?.innerLayer === true, ...(isSolo ? { solo: true } : {}) },
     era: 'canal',
     round: 1,
     board: { slots, links: [] },

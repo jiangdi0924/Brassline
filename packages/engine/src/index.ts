@@ -12,6 +12,7 @@ export type {
   Link,
   FlipEvent,
   MerchantBonusEvent,
+  NpcConsumeEvent,
   GameEvent,
   BeerSourceRef,
   ResourceSourceRef,
@@ -36,6 +37,7 @@ export {
   connectedMerchants,
   ironSources,
   isConnected,
+  merchantDistances,
   playerNetwork,
   reachableFrom,
 } from './network.js';
@@ -47,6 +49,18 @@ export {
   consumeIron,
   merchantHasUsableBarrel,
 } from './resources.js';
+export {
+  NPC_DEMAND,
+  npcDemandFor,
+  SOLO_INDUSTRY_CARD_ID,
+  SOLO_PERMIT_CARD_PREFIX,
+  SOLO_ROUNDS_PER_ERA,
+  SOLO_TARGETS,
+  soloRank,
+} from './data/solo.js';
+export type { NpcDemand, NpcDemandRow, SoloRank } from './data/solo.js';
+export { settleNpcDemand } from './solo.js';
+export { isSoloCard, isSoloPermitCard, soloHand } from './solo-hand.js';
 export type {
   ConsumeBeerOpts,
   ConsumeBeerResult,

@@ -23,7 +23,9 @@
  * 纯函数：不改入参。
  */
 import { incomeLevelAt } from './data/income.js';
+import { SOLO_ROUNDS_PER_ERA } from './data/solo.js';
 import { checkEraEnd } from './era.js';
+import { settleNpcDemand } from './solo.js';
 import type { GameState, PlayerState } from './state.js';
 import type { LocationId, PlayerIndex } from './types.js';
 
@@ -32,8 +34,13 @@ export function actionsPerRound(state: GameState): number {
   return state.era === 'canal' && state.round === 1 ? 1 : 2;
 }
 
-/** 时代结束条件（§4）：牌堆空且全部玩家手牌空。 */
+/**
+ * 时代结束条件（§4）：牌堆空且全部玩家手牌空。
+ * solo（spec 2026-11-05 §1.4）：时代内第 SOLO_ROUNDS_PER_ERA 轮（及以后）结束时。
+ * 在轮末结算前（round 尚未 ++）求值，round 为刚结束的那一轮。
+ */
 export function eraEndCondition(state: GameState): boolean {
+  if (state.rules?.solo === true) return state.round >= SOLO_ROUNDS_PER_ERA;
   return state.deck.length === 0 && state.players.every((p) => p.hand.length === 0);
 }
 
@@ -186,6 +193,9 @@ export function settleRoundEnd(state: GameState): GameState {
     turnOrder: ranked.map((r) => r.p),
     players: next.players.map((ps) => ({ ...ps, spentThisRound: 0 })),
   };
+
+  // solo：NPC 需求（收入前，翻面的收入前进本轮即生效）
+  next = settleNpcDemand(next);
 
   // b. 收入（c 例外：全局最后一轮不发）
   if (!finalRoundOfGame) next = settleIncome(next);

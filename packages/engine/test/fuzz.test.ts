@@ -26,7 +26,7 @@ function expectSaneFinal(state: GameState, log: Action[]): void {
     expect(w).toBeGreaterThanOrEqual(0);
     expect(w).toBeLessThan(state.playerCount);
   }
-  expect(log.length).toBeGreaterThan(MIN_LOG_LENGTH[state.playerCount]);
+  expect(log.length).toBeGreaterThan(MIN_LOG_LENGTH[state.playerCount as 2 | 3 | 4]);
   for (const p of state.players) {
     expect(p.money).toBeGreaterThanOrEqual(0);
     expect(p.incomeSpace).toBeGreaterThanOrEqual(0);

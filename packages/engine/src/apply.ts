@@ -27,7 +27,9 @@ import { applyPass } from './actions/pass.js';
 import { applyScout, enumerateScout } from './actions/scout.js';
 import { applySell, enumerateSells, validateSales } from './actions/sell.js';
 import { IllegalActionError } from './errors.js';
+import { SOLO_INDUSTRY_CARD_ID } from './data/solo.js';
 import { stableStringify } from './serialize.js';
+import { isSoloCard, soloHand, spendSoloCard } from './solo-hand.js';
 import type { GameState, PlayerState } from './state.js';
 import { actionsPerRound, endTurnIfNeeded } from './turn.js';
 import type { Action, PlayerIndex } from './types.js';
@@ -42,6 +44,23 @@ const HAND_SIZE = 8;
 export function enumerateActions(state: GameState, player: PlayerIndex): Action[] {
   if (state.phase === 'game-over') return [];
   const ps = state.players[player]!;
+  if (state.rules?.solo === true) {
+    // solo：非建造行动只用合成 Wild Industry 卡（许可证留给建造）；无侦察
+    // 非建造行动只在"仅含 solo-industry"的手牌视图上枚举（避免按许可证张数重复枚举）
+    const industryOnly = withPlayer(state, player, {
+      ...ps,
+      hand: ps.hand.filter((c) => c.id === SOLO_INDUSTRY_CARD_ID),
+    });
+    const all: Action[] = [
+      ...enumerateBuilds(state, player),
+      ...enumerateNetwork(industryOnly, player),
+      ...enumerateDevelop(industryOnly, player),
+      ...enumerateSells(industryOnly, player),
+      ...enumerateLoan(industryOnly, player),
+      ...industryOnly.players[player]!.hand.map((c): Action => ({ type: 'pass', cardId: c.id })),
+    ];
+    return all;
+  }
   const passes: Action[] = ps.hand.map((c) => ({ type: 'pass', cardId: c.id }));
   return [
     ...enumerateBuilds(state, player),
@@ -99,6 +118,10 @@ function normalizeAction(action: Action): Action {
 
 /** 规范化比较：action 是否在 enumerateActions 输出内。sell 走组合式校验(自定义组合)。 */
 function isLegalAction(state: GameState, player: PlayerIndex, action: Action): boolean {
+  if (state.rules?.solo === true) {
+    if (action.type === 'scout') return false;
+    if (action.type !== 'build' && action.cardId !== SOLO_INDUSTRY_CARD_ID) return false;
+  }
   if (action.type === 'sell') {
     // 组合式校验(applySell 同一套):行动卡须在手 + 逐块合法 + 啤酒可行
     if (!state.players[player]!.hand.some((c) => c.id === action.cardId)) return false;
@@ -138,7 +161,10 @@ function discardActionCard(state: GameState, player: PlayerIndex, cardId: string
     ...ps,
     hand: [...ps.hand.slice(0, idx), ...ps.hand.slice(idx + 1)],
   });
-  if (card.kind === 'wild-location') {
+  if (isSoloCard(card.id)) {
+    // solo 合成卡：直接消失（许可证 −1），不进弃牌堆、不回 Wild 供应
+    next = spendSoloCard(next, player, card.id);
+  } else if (card.kind === 'wild-location') {
     next = { ...next, wildSupply: { ...next.wildSupply, location: next.wildSupply.location + 1 } };
   } else if (card.kind === 'wild-industry') {
     next = { ...next, wildSupply: { ...next.wildSupply, industry: next.wildSupply.industry + 1 } };
@@ -148,9 +174,17 @@ function discardActionCard(state: GameState, player: PlayerIndex, cardId: string
   return next;
 }
 
-/** 手牌从 deck 顶补回 8 张；deck 空则不补。 */
+/**
+ * 手牌从 deck 顶补回 8 张；deck 空则不补。
+ * solo：手牌重生为合成卡（1 张 solo-industry + permits 张 solo-permit-k），与 deck 无关。
+ */
 export function refillHand(state: GameState, player: PlayerIndex): GameState {
   const ps = state.players[player]!;
+  if (state.rules?.solo === true) {
+    const players = state.players.slice();
+    players[player] = { ...ps, hand: soloHand(ps.permits ?? 0) };
+    return { ...state, players };
+  }
   const draw = Math.min(HAND_SIZE - ps.hand.length, state.deck.length);
   if (draw <= 0) return state;
   const players = state.players.slice();
@@ -194,6 +228,11 @@ export function applyAction(
     case 'sell': {
       const r = applySell(state, player, action, modOpts);
       next = discardActionCard({ ...r.state, lastEvents: r.events }, player, action.cardId);
+      if (next.rules?.solo === true) {
+        // solo：本次卖货翻面的每块板块（= 所卖板块数）+1 许可证
+        const ps = next.players[player]!;
+        next = withPlayer(next, player, { ...ps, permits: (ps.permits ?? 0) + action.sales.length });
+      }
       break;
     }
     case 'network':
@@ -217,7 +256,10 @@ export function applyAction(
   // 补牌时机（规则书 p.6 "After all of your actions have been completed"）：
   // 仅本轮最后一次行动后补回 8 张；2 行动回合的第 1 个行动后手牌保持 7 张。
   // deferRoundEnd(联机回合确认)时跳过——补牌也是回合结算,等 end_turn 由调用方补
-  if (opts?.deferRoundEnd !== true && next.actionsThisTurn + 1 >= actionsPerRound(next)) {
+  // solo：每次行动后都重生合成手牌（与 deferRoundEnd 无关，保证下一行动前手牌就绪）
+  if (next.rules?.solo === true) {
+    next = refillHand(next, player);
+  } else if (opts?.deferRoundEnd !== true && next.actionsThisTurn + 1 >= actionsPerRound(next)) {
     next = refillHand(next, player);
   }
   next = { ...next, actionsThisTurn: next.actionsThisTurn + 1 };

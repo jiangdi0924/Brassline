@@ -24,6 +24,7 @@ function isWild(card: Card): boolean {
  * 手有 Wild 或任一 Wild 供应堆为空时为空。
  */
 export function enumerateScout(state: GameState, player: PlayerIndex): Action[] {
+  if (state.rules?.solo === true) return []; // solo 无侦察行动
   const ps = state.players[player]!;
   if (state.wildSupply.location < 1 || state.wildSupply.industry < 1) return [];
   if (ps.hand.some(isWild)) return [];
@@ -56,13 +57,14 @@ export function applyScout(
     throw new IllegalActionError('not-a-scout-action', `not-a-scout-action: ${action.type}`);
   }
   const legal =
-    opts?.assumeLegal === true ||
+    state.rules?.solo !== true &&
+    (opts?.assumeLegal === true ||
     enumerateScout(state, player).some(
       (a) =>
         a.type === 'scout' &&
         a.cardIds.length === action.cardIds.length &&
         a.cardIds.every((v, k) => v === action.cardIds[k]),
-    );
+    ));
   if (!legal) {
     throw new IllegalActionError(
       'illegal-scout',

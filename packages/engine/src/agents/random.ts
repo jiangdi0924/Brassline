@@ -36,10 +36,14 @@ export class RandomAgent implements PlayerAgent {
 /** 防御性上限：正常对局远小于此（§4 轮数有界），超限即引擎死循环。 */
 const MAX_STEPS = 100_000;
 
+/**
+ * playerCount 1 = solo 变体（隐含 { solo: true }）。opts.innerLayer 透传 newGame。
+ */
 export function playGame(
-  playerCount: 2 | 3 | 4,
+  playerCount: 1 | 2 | 3 | 4,
   seed: number,
   agents?: PlayerAgent[],
+  opts?: { innerLayer?: boolean },
 ): { state: GameState; log: Action[] } {
   const seats: PlayerAgent[] =
     agents ??
@@ -48,7 +52,10 @@ export function playGame(
     throw new Error(`playGame: need ${playerCount} agents, got ${seats.length}`);
   }
 
-  let state = newGame(playerCount, seed);
+  let state = newGame(playerCount, seed, {
+    ...(opts?.innerLayer !== undefined ? { innerLayer: opts.innerLayer } : {}),
+    ...(playerCount === 1 ? { solo: true } : {}),
+  });
   const log: Action[] = [];
   let steps = 0;
   while (state.phase !== 'game-over') {

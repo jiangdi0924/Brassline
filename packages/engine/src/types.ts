@@ -35,8 +35,21 @@ export interface MerchantBonusEvent {
   merchant: MerchantId;
 }
 
+/**
+ * Solo NPC 需求事件（轮末、收入前）：NPC 从某资源板块拿走 count 个方块/桶。
+ * flipped = 本次拿空导致翻面（随后另有一条 FlipEvent 记 owner 收入前进）。
+ */
+export interface NpcConsumeEvent {
+  kind: 'npc-consume';
+  location: LocationId;
+  slotIndex: number;
+  industry: 'coal' | 'iron' | 'brewery';
+  count: number;
+  flipped: boolean;
+}
+
 /** applyAction 产生的事件；写入 GameState.lastEvents。 */
-export type GameEvent = FlipEvent | MerchantBonusEvent;
+export type GameEvent = FlipEvent | MerchantBonusEvent | NpcConsumeEvent;
 
 /**
  * 显式啤酒来源（Sell 分组自选，2026-08-21）：逐桶指定。

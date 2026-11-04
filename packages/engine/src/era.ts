@@ -17,6 +17,7 @@
 import { LINK_EXTRA_ENDPOINTS, LINKS, MERCHANTS } from './data/board.js';
 import { incomeLevelAt } from './data/income.js';
 import { createRng } from './rng.js';
+import { soloHand } from './solo-hand.js';
 import type { GameState } from './state.js';
 import type { LocationId, MerchantId, PlayerIndex } from './types.js';
 
@@ -114,6 +115,16 @@ function canalToRail(state: GameState): GameState {
   next = scoreFlippedIndustries(next);
   next = removeLevelOneTiles(next);
   next = refillMerchantBeer(next);
+  if (next.rules?.solo === true) {
+    // solo：无牌堆，不洗不发（手牌为合成卡，已按 permits 重生）；轮次按时代计，重置为 1
+    return {
+      ...next,
+      era: 'rail',
+      round: 1,
+      eraEndPending: false,
+      players: next.players.map((p) => ({ ...p, hand: soloHand(p.permits ?? 0) })),
+    };
+  }
   next = reshuffleAndDeal(next);
   return { ...next, era: 'rail', eraEndPending: false };
 }

@@ -44,6 +44,8 @@ import {
   playerNetwork,
 } from '../network.js';
 import { applyFlip, consumeCoal, consumeIron } from '../resources.js';
+import { SOLO_PERMIT_CARD_PREFIX } from '../data/solo.js';
+import { isSoloCard, isSoloPermitCard, spendSoloCard } from '../solo-hand.js';
 import type { GameState, PlacedTile, PlayerState } from '../state.js';
 import type {
   Action,
@@ -203,6 +205,8 @@ export function enumerateBuilds(state: GameState, player: PlayerIndex): Action[]
   const emptyBoard = playerBoardEmpty(state, player);
   const out: Action[] = [];
   for (const card of ps.hand) {
+    // solo：许可证卡彼此等价，只为 solo-permit-0 枚举（去重；其他编号不在合法集）
+    if (isSoloPermitCard(card.id) && card.id !== `${SOLO_PERMIT_CARD_PREFIX}0`) continue;
     const { locations, industries } = cardTargets(state, player, card, emptyBoard);
     for (const industry of industries) {
       const def = ps.tiles.find((t) => t.industry === industry);
@@ -365,7 +369,10 @@ export function applyBuild(
     ...psNow2,
     hand: [...psNow2.hand.slice(0, cardIdx), ...psNow2.hand.slice(cardIdx + 1)],
   });
-  if (card.kind === 'wild-location') {
+  if (isSoloCard(card.id)) {
+    // solo 合成卡：直接消失（许可证 −1），不进弃牌堆、不回 Wild 供应
+    next = spendSoloCard(next, player, card.id);
+  } else if (card.kind === 'wild-location') {
     next = { ...next, wildSupply: { ...next.wildSupply, location: next.wildSupply.location + 1 } };
   } else if (card.kind === 'wild-industry') {
     next = { ...next, wildSupply: { ...next.wildSupply, industry: next.wildSupply.industry + 1 } };

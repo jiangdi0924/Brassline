@@ -178,3 +178,29 @@ export function ironSources(state: GameState): { tile: PlacedTile; location: Loc
   );
   return out.map(({ tile, location }) => ({ tile, location }));
 }
+
+/**
+ * 各节点到最近商人位的路程（沿当前时代已建边多源 BFS，商人位自身 0）。
+ * 不在表内 = 未连通任何商人位。不要求该位放有商人板块（与 canBuyCoalFromMarket 一致）。
+ * solo NPC 需求的煤/啤酒取用顺序用（solo.ts）。
+ */
+export function merchantDistances(state: GameState): Map<NetworkNode, number> {
+  const adj = builtAdjacency(state);
+  const dist = new Map<NetworkNode, number>(MERCHANT_IDS.map((id) => [id, 0]));
+  let frontier: NetworkNode[] = [...MERCHANT_IDS];
+  let d = 0;
+  while (frontier.length > 0) {
+    d += 1;
+    const next: NetworkNode[] = [];
+    for (const cur of frontier) {
+      for (const nb of adj.get(cur) ?? []) {
+        if (!dist.has(nb)) {
+          dist.set(nb, d);
+          next.push(nb);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return dist;
+}

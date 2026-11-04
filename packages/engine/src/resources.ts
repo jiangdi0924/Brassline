@@ -138,8 +138,9 @@ export function applyFlip(
 /**
  * 从指定槽位移走 count 个资源；耗尽（归 0）立即翻面并把事件推入 flipped。
  * 内层产线：库存归 0 但 deposit 仍 > 0 时不翻面，等下一次交付（deliver.ts）。
+ * 导出供 solo NPC 需求复用（solo.ts），翻面语义与正常消耗一致。
  */
-function drain(
+export function drain(
   state: GameState,
   location: LocationId,
   slotIdx: number,

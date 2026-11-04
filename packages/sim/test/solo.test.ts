@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GreedyAgent } from '@brassline/bots';
 import { stableStringify } from '@brassline/engine';
+import { SOLO_ERA_PERMIT, SOLO_STARTING_PERMITS } from '@brassline/engine';
 import { aggregateSolo, calibrateTargets, median, percentile, playSolo } from '../src/solo.js';
 
 const greedy = (seed: number) => [new GreedyAgent(seed * 10)];
@@ -33,8 +34,10 @@ describe('playSolo', () => {
     for (const s of runs) {
       expect(['none', 'bronze', 'silver', 'gold']).toContain(s.rank);
       expect(s.permitsEarned).toBeGreaterThanOrEqual(0);
-      expect(s.permitsUsed + s.permitsDiscarded).toBeLessThanOrEqual(s.permitsEarned);
-      expect(s.permitsAtEnd).toBe(s.permitsEarned - s.permitsUsed - s.permitsDiscarded);
+      // 开局自带 SOLO_STARTING_PERMITS 张，进铁路时代再加 SOLO_ERA_PERMIT 张（引擎 data/solo.ts）
+      const granted = s.permitsEarned + SOLO_STARTING_PERMITS + SOLO_ERA_PERMIT;
+      expect(s.permitsUsed + s.permitsDiscarded).toBeLessThanOrEqual(granted);
+      expect(s.permitsAtEnd).toBe(granted - s.permitsUsed - s.permitsDiscarded);
       for (const era of ['canal', 'rail'] as const) {
         for (const k of ['coal', 'iron', 'beer'] as const) {
           expect(s.npcConsumed[era][k]).toBeGreaterThanOrEqual(0);

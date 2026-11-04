@@ -53,6 +53,8 @@ export type {
   ConsumeResourceOpts,
   ConsumeResult,
 } from './resources.js';
+export { deliverResources, spendMoney } from './deliver.js';
+export type { DeliverResult } from './deliver.js';
 export { applyBuild, enumerateBuilds } from './actions/build.js';
 export { applyNetwork, enumerateNetwork, firstLocationEndpoint } from './actions/network.js';
 export { applyDevelop, enumerateDevelop } from './actions/develop.js';
@@ -78,6 +80,7 @@ export type {
   BuiltLink,
   PlayerState,
   MerchantTile,
+  GameRules,
   GameState,
 } from './state.js';
 export {

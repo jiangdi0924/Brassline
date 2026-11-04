@@ -68,12 +68,12 @@ function playerBoardEmpty(state: GameState, player: PlayerIndex): boolean {
   );
 }
 
-/** 全图（含市场）某类资源方块总数（Overbuild 对手前置，§6.2/§9.13）。 */
+/** 全图（含市场）某类资源方块总数（Overbuild 对手前置，§6.2/§9.13）。内层产线的 deposit 也算板上方块。 */
 function globalCubes(state: GameState, industry: 'coal' | 'iron'): number {
   let n = industry === 'coal' ? state.coalMarket : state.ironMarket;
   for (const slots of Object.values(state.board.slots)) {
     for (const t of slots) {
-      if (t && t.tile.industry === industry) n += t.resources;
+      if (t && t.tile.industry === industry) n += t.resources + (t.deposit ?? 0);
     }
   }
   return n;
@@ -347,12 +347,14 @@ export function applyBuild(
     ...psNow,
     tiles: [...psNow.tiles.slice(0, tileIdx), ...psNow.tiles.slice(tileIdx + 1)],
   });
-  const placedTile: PlacedTile = {
-    tile: def,
-    player,
-    flipped: false,
-    resources: def.industry === 'brewery' ? BREWERY_BARRELS[next.era] : def.resourcesPlaced,
-  };
+  const fill = def.industry === 'brewery' ? BREWERY_BARRELS[next.era] : def.resourcesPlaced;
+  // 内层产线（P3 §1.1）：资源板块不放满，全部记入 deposit，由 deliverResources 逐步交付
+  const innerLayer = next.rules?.innerLayer === true;
+  const isResourceTile = def.industry === 'coal' || def.industry === 'iron' || def.industry === 'brewery';
+  const placedTile: PlacedTile =
+    innerLayer && isResourceTile
+      ? { tile: def, player, flipped: false, resources: 0, deposit: fill }
+      : { tile: def, player, flipped: false, resources: fill };
   next = withSlotTile(next, action.location, target.slotIndex, placedTile);
 
   // 4. 弃卡：Wild 卡回 Wild 供应，不进弃牌堆（§9.14）
@@ -372,10 +374,11 @@ export function applyBuild(
   }
 
   // 5. 建成即卖市场（仅本次行动，§9.7）：铁厂无条件；煤矿须连通商人位
+  //    内层产线开启时跳过：方块在交付时才卖（deliverResources）
   const industry = def.industry;
   if (
-    (industry === 'coal' && canBuyCoalFromMarket(next, action.location)) ||
-    industry === 'iron'
+    !innerLayer &&
+    ((industry === 'coal' && canBuyCoalFromMarket(next, action.location)) || industry === 'iron')
   ) {
     const sale =
       industry === 'coal'

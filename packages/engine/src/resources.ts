@@ -135,7 +135,10 @@ export function applyFlip(
   };
 }
 
-/** 从指定槽位移走 count 个资源；耗尽（归 0）立即翻面并把事件推入 flipped。 */
+/**
+ * 从指定槽位移走 count 个资源；耗尽（归 0）立即翻面并把事件推入 flipped。
+ * 内层产线：库存归 0 但 deposit 仍 > 0 时不翻面，等下一次交付（deliver.ts）。
+ */
 function drain(
   state: GameState,
   location: LocationId,
@@ -146,7 +149,7 @@ function drain(
   const placed = state.board.slots[location]![slotIdx]!;
   const remaining = placed.resources - count;
   let next = withSlotTile(state, location, slotIdx, { ...placed, resources: remaining });
-  if (remaining === 0 && !placed.flipped) {
+  if (remaining === 0 && (placed.deposit ?? 0) === 0 && !placed.flipped) {
     const r = applyFlip(next, location, slotIdx);
     flipped.push(r.event);
     next = r.state;

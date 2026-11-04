@@ -36,6 +36,11 @@ export interface PlacedTile {
   flipped: boolean;
   /** 煤/铁方块数或啤酒桶数（酒厂桶数按时代，见 market.ts BREWERY_BARRELS）。 */
   resources: number;
+  /**
+   * 内层产线（rules.innerLayer）专用：矿里/酒厂里尚未交付的方块/桶数。
+   * 开关关闭时不写入（undefined 视为 0），序列化兼容。见 deliver.ts。
+   */
+  deposit?: number;
 }
 
 export interface BuiltLink {
@@ -58,8 +63,15 @@ export interface PlayerState {
 
 export type MerchantTile = 'any' | 'cotton' | 'manufacturer' | 'pottery' | 'blank';
 
+/** 规则变体开关（P3 spec §1）。 */
+export interface GameRules {
+  /** 资源板块由内层产线逐步交付（deposit → resources），建造时不放满、不卖市场。 */
+  innerLayer: boolean;
+}
+
 export interface GameState {
   playerCount: 2 | 3 | 4;
+  rules: GameRules;
   era: Era;
   /** 从 1 起。 */
   round: number;
@@ -124,7 +136,11 @@ function playerTileStacks(): TileDef[] {
   return out;
 }
 
-export function newGame(playerCount: 2 | 3 | 4, seed: number): GameState {
+export function newGame(
+  playerCount: 2 | 3 | 4,
+  seed: number,
+  opts?: { innerLayer?: boolean },
+): GameState {
   const rng = createRng(seed);
 
   // 1. 牌堆：洗牌 → 发 8 张/人 → 每位玩家各 1 张弃牌堆底（规则书 p.5 步骤 9）
@@ -178,6 +194,7 @@ export function newGame(playerCount: 2 | 3 | 4, seed: number): GameState {
 
   return {
     playerCount,
+    rules: { innerLayer: opts?.innerLayer === true },
     era: 'canal',
     round: 1,
     board: { slots, links: [] },

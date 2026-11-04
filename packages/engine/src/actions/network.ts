@@ -206,7 +206,7 @@ function drinkPinnedOpponentBrewery(
   }
   const placed = state.board.slots[location]![idx]!;
   let next = withSlotTile(state, location, idx, { ...placed, resources: placed.resources - 1 });
-  if (placed.resources - 1 === 0) {
+  if (placed.resources - 1 === 0 && (placed.deposit ?? 0) === 0) {
     const f = applyFlip(next, location, idx);
     next = f.state;
     events.push(f.event);
@@ -249,7 +249,7 @@ function drinkExplicitBrewery(
     ...placed,
     resources: placed.resources - 1,
   });
-  if (placed.resources - 1 === 0) {
+  if (placed.resources - 1 === 0 && (placed.deposit ?? 0) === 0) {
     const f = applyFlip(next, source.location, source.slotIndex);
     next = f.state;
     events.push(f.event);

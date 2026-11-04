@@ -1,0 +1,16 @@
+{
+  "name": "brassline",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "sim": "pnpm -F @brassline/sim run sim",
+    "dev": "pnpm -F @brassline/web dev",
+    "build": "pnpm -F @brassline/web build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

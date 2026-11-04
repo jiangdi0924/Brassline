@@ -22,6 +22,8 @@ export interface Save {
 export interface GameStore {
   state: GameState | null;
   log: Action[];
+  /** 与 log 一一对应：执行该行动的玩家（仅用于界面日志，不入存档）。 */
+  actors: PlayerIndex[];
   seed: number;
   seats: Seat[];
   newGame(opts: { playerCount: 2 | 3 | 4; seed: number; seats: Seat[] }): void;
@@ -31,6 +33,8 @@ export interface GameStore {
   isBotTurn(): boolean;
   /** 连续执行机器人座位直到轮到人类或终局；每步同步执行。 */
   runBotsUntilHumanOrEnd(): void;
+  /** 若轮到机器人，执行它的一个行动并返回 true（界面用它逐步播放机器人回合）。 */
+  stepBot(): boolean;
 }
 
 export function createGameStore(): StoreApi<GameStore> {
@@ -38,6 +42,7 @@ export function createGameStore(): StoreApi<GameStore> {
   return createStore<GameStore>((set, get) => ({
     state: null,
     log: [],
+    actors: [],
     seed: 0,
     seats: [],
     newGame({ playerCount, seed, seats }) {
@@ -45,12 +50,13 @@ export function createGameStore(): StoreApi<GameStore> {
       seats.forEach((s, i) => {
         if (s === 'bot') bots.set(i, new GreedyAgent(seed * 10 + i));
       });
-      set({ state: engineNewGame(playerCount, seed), log: [], seed, seats });
+      set({ state: engineNewGame(playerCount, seed), log: [], actors: [], seed, seats });
     },
     apply(action) {
-      const { state, log } = get();
+      const { state, log, actors } = get();
       if (!state) throw new Error('no game');
-      set({ state: applyAction(state, action), log: [...log, action] });
+      const actor = state.turnOrder[state.currentPlayerIdx]!;
+      set({ state: applyAction(state, action), log: [...log, action], actors: [...actors, actor] });
     },
     currentPlayer() {
       const { state } = get();
@@ -73,6 +79,12 @@ export function createGameStore(): StoreApi<GameStore> {
         const legal = get().legal();
         get().apply(bots.get(p)!.chooseAction(get().state!, legal));
       }
+    },
+    stepBot() {
+      if (!get().isBotTurn()) return false;
+      const p = get().currentPlayer()!;
+      get().apply(bots.get(p)!.chooseAction(get().state!, get().legal()));
+      return true;
     },
   }));
 }

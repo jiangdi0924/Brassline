@@ -37,5 +37,5 @@ export function BoardCanvas({ state, highlights, onPick }: Props) {
     sceneRef.current?.update(state, highlights);
   }, [state, highlights]);
 
-  return <div ref={ref} style={{ position: 'absolute', inset: 0 }} />;
+  return <div ref={ref} style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'clip' }} />;
 }

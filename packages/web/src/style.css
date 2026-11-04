@@ -1,3 +1,30 @@
 html, body, #root { margin: 0; height: 100%; font-family: system-ui, "PingFang SC", sans-serif; }
 .loc-label { font-size: 12px; color: #2b2520; background: rgba(255,255,255,.75); padding: 1px 4px; border-radius: 3px; }
 .merchant-label { font-size: 12px; color: #fff; background: #8c2f39; padding: 1px 4px; border-radius: 3px; }
+.app { position: fixed; inset: 0; overflow: hidden; overflow: clip; }
+.topbar { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 24px; align-items: center; padding: 6px 12px; background: rgba(43,37,32,.85); color: #fff; font-size: 14px; }
+.topbar-btn { font-size: 12px; padding: 2px 8px; }
+.markets { position: absolute; top: 40px; left: 8px; background: rgba(255,255,255,.9); padding: 8px; border-radius: 6px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.market-row { display: flex; gap: 2px; }
+.cube { width: 18px; height: 18px; display: inline-grid; place-items: center; border: 1px solid #999; font-size: 10px; background: #eee; }
+.cube.on { background: #333; color: #fff; }
+.players { position: absolute; top: 40px; right: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.player { background: rgba(255,255,255,.92); border-left: 6px solid; padding: 6px 8px; border-radius: 4px; min-width: 240px; }
+.player.active { box-shadow: 0 0 0 2px #c8102e; }
+.stacks span { margin-right: 8px; }
+.log { position: absolute; right: 8px; bottom: 140px; width: 280px; max-height: 220px; overflow: auto; background: rgba(255,255,255,.85); font-size: 12px; padding: 6px; border-radius: 4px; }
+.bottom { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(43,37,32,.9); padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
+.status { color: #fff; }
+.actionbar { display: flex; gap: 8px; align-items: center; color: #fff; flex-wrap: wrap; }
+.actionbar select { font-size: 14px; padding: 6px; max-width: 480px; }
+.hand { display: flex; gap: 6px; flex-wrap: wrap; }
+.card { padding: 10px 12px; min-width: 96px; border: 1px solid #777; background: #f5efe0; border-radius: 4px; }
+.card.ok { border-color: #2a2; box-shadow: 0 0 0 2px #2a2 inset; }
+button { font-size: 14px; padding: 8px 12px; cursor: pointer; }
+button.primary { background: #c8102e; color: #fff; border: none; }
+.overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; }
+.dialog { background: #fff; padding: 24px; border-radius: 8px; min-width: 320px; }
+.lobby { display: grid; place-content: center; gap: 12px; height: 100%; }
+/* HUD 盖在 CSS2D 地名标签之上 */
+.topbar, .markets, .players, .log, .bottom { z-index: 10; }
+.overlay { z-index: 20; }

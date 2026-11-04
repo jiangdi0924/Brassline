@@ -13,6 +13,7 @@
   "dependencies": {
     "@brassline/bots": "workspace:*",
     "@brassline/engine": "workspace:*",
+    "@brassline/factory": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "three": "^0.187.0",

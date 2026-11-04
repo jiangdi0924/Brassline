@@ -57,14 +57,17 @@ describe('solo: setup', () => {
     expect(() => newGame(2, 1, { solo: true })).toThrow();
   });
 
-  it('solo state: synthetic hand, 0 permits, empty deck/discard, 2p merchants, £17', () => {
+  it('solo state: synthetic hand, 1 starting permit, empty deck/discard, 2p merchants, £17', () => {
     const s = solo(7);
     expect(s.playerCount).toBe(1);
     expect(s.rules.solo).toBe(true);
     expect(s.rules.innerLayer).toBe(false);
     expect(s.players).toHaveLength(1);
-    expect(s.players[0]!.hand).toEqual([{ id: 'solo-industry', kind: 'wild-industry' }]);
-    expect(s.players[0]!.permits).toBe(0);
+    expect(s.players[0]!.hand).toEqual([
+      { id: 'solo-industry', kind: 'wild-industry' },
+      { id: 'solo-permit-0', kind: 'wild-location' },
+    ]);
+    expect(s.players[0]!.permits).toBe(1);
     expect(s.players[0]!.money).toBe(17);
     expect(s.deck).toEqual([]);
     expect(s.discard).toEqual([]);
@@ -142,10 +145,12 @@ describe('solo: synthetic hand and actions', () => {
     const net = playerNetwork(s, 0);
     const builds = enumerateActions(s, 0).filter((a): a is Extract<Action, { type: 'build' }> => a.type === 'build');
     expect(builds.length).toBeGreaterThan(0);
-    for (const b of builds) {
-      expect(b.cardId).toBe('solo-industry');
-      expect(net.has(b.location)).toBe(true);
-    }
+    // 合成产业卡只能建在网络内；开局自带的 1 张许可证可建任意地点
+    const viaIndustry = builds.filter((b) => b.cardId === 'solo-industry');
+    const viaPermit = builds.filter((b) => b.cardId === 'solo-permit-0');
+    expect(viaIndustry.length).toBeGreaterThan(0);
+    for (const b of viaIndustry) expect(net.has(b.location)).toBe(true);
+    expect(viaPermit.some((b) => !net.has(b.location))).toBe(true);
   });
 
   it('a sell flipping 1 tile grants 1 permit; next hand has 1 wild-location', () => {
@@ -161,8 +166,8 @@ describe('solo: synthetic hand and actions', () => {
     expect(sell).toBeDefined();
     const after = applyAction(s, sell);
     expect(after.board.slots['worcester']![0]!.flipped).toBe(true);
-    expect(after.players[0]!.permits).toBe(1);
-    expect(handIds(after)).toEqual(['solo-industry', 'solo-permit-0']);
+    expect(after.players[0]!.permits).toBe(2);
+    expect(handIds(after)).toEqual(['solo-industry', 'solo-permit-0', 'solo-permit-1']);
     expect(after.players[0]!.hand[1]!.kind).toBe('wild-location');
     expect(after.discard).toEqual([]);
   });
@@ -371,14 +376,14 @@ describe('solo: era end and game end', () => {
 
 describe('solo: rank', () => {
   it('thresholds', () => {
-    expect(SOLO_TARGETS).toEqual({ bronze: 50, silver: 80, gold: 110 });
+    expect(SOLO_TARGETS).toEqual({ bronze: 45, silver: 70, gold: 95 });
     expect(soloRank(0)).toBe('none');
-    expect(soloRank(49)).toBe('none');
-    expect(soloRank(50)).toBe('bronze');
-    expect(soloRank(79)).toBe('bronze');
-    expect(soloRank(80)).toBe('silver');
-    expect(soloRank(109)).toBe('silver');
-    expect(soloRank(110)).toBe('gold');
+    expect(soloRank(44)).toBe('none');
+    expect(soloRank(45)).toBe('bronze');
+    expect(soloRank(69)).toBe('bronze');
+    expect(soloRank(70)).toBe('silver');
+    expect(soloRank(94)).toBe('silver');
+    expect(soloRank(95)).toBe('gold');
     expect(soloRank(200)).toBe('gold');
   });
 });

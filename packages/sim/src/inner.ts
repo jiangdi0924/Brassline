@@ -55,10 +55,15 @@ function resourceTiles(state: GameState): { key: string; location: string; slot:
   return out;
 }
 
+/** 每个外层行动 applyAction 之后、推进厂区/交付之前调用（solo 统计用）。 */
+export type ActionObserver = (before: GameState, action: Action, after: GameState) => void;
+
+/** playerCount 1 = solo 变体（隐含 { solo: true }，与引擎 playGame 一致）。 */
 export function playGameInner(
-  playerCount: 2 | 3 | 4,
+  playerCount: 1 | 2 | 3 | 4,
   seed: number,
   agents?: PlayerAgent[],
+  opts?: { onAction?: ActionObserver },
 ): { state: GameState; log: Action[]; innerStats: InnerStats; plots: Record<string, Plot> } {
   const seats: PlayerAgent[] =
     agents ?? Array.from({ length: playerCount }, (_, i) => new RandomAgent(seed * 10 + i));
@@ -66,7 +71,7 @@ export function playGameInner(
     throw new Error(`playGameInner: need ${playerCount} agents, got ${seats.length}`);
   }
 
-  let state = newGame(playerCount, seed, { innerLayer: true });
+  let state = newGame(playerCount, seed, { innerLayer: true, ...(playerCount === 1 ? { solo: true } : {}) });
   const log: Action[] = [];
   const plots = new Map<string, { sig: string; plot: Plot }>();
   const stats: InnerStats = {
@@ -92,8 +97,10 @@ export function playGameInner(
 
     const before = new Map<string, string>();
     for (const r of resourceTiles(state)) if (!r.tile.flipped) before.set(r.key, signature(r.tile));
+    const prev = state;
     state = applyAction(state, action);
     log.push(action);
+    opts?.onAction?.(prev, action, state);
     if (action.type === 'build' && (RESOURCE_KINDS as readonly string[]).includes(action.industry)) {
       stats.tilesBuiltByKind[action.industry as PlotKind]++;
     }

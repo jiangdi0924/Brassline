@@ -39,7 +39,13 @@ export function npcDemandFor(era: Era, round: number): NpcDemand {
 }
 
 /** Solo 评级阈值（§1.4；待 sim 校准）。 */
-export const SOLO_TARGETS = { bronze: 50, silver: 80, gold: 110 } as const;
+/** 开局许可证数：保证第一手建在无运河线的地点也不会困死。 */
+export const SOLO_STARTING_PERMITS = 1;
+/** 进入铁路时代时追加的许可证：1 级板块清场后仍有路可走。 */
+export const SOLO_ERA_PERMIT = 1;
+
+/** 按 2026-11-05 贪心机器人 100 局（开厂区内层）校准：铜≈中位数 44，银≈p90 67，金≈银×1.35。 */
+export const SOLO_TARGETS = { bronze: 45, silver: 70, gold: 95 } as const;
 
 export type SoloRank = 'none' | 'bronze' | 'silver' | 'gold';
 

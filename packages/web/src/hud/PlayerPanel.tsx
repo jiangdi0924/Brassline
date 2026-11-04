@@ -13,7 +13,7 @@ export function PlayerPanel({ state, seats }: { state: GameState; seats: Seat[] 
     <div className="players">
       {state.players.map((p, i) => (
         <div key={i} className={i === cur ? 'player active' : 'player'} style={{ borderColor: playerColor(i) }}>
-          <b>P{i + 1}{seats[i] === 'bot' ? '（机器人）' : ''}</b> £{p.money} · 收入 {incomeLevelAt(p.incomeSpace)} · VP {p.vp} · 手牌 {p.hand.length}
+          <b>P{i + 1}{seats[i] === 'bot' ? '（机器人）' : ''}</b> £{p.money} · 收入 {incomeLevelAt(p.incomeSpace)} · VP {p.vp} · {state.rules.solo ? `许可证 ${p.permits ?? 0}` : `手牌 ${p.hand.length}`}
           <div className="stacks">
             {IND.map((ind) => {
               const next = p.tiles.find((t) => t.industry === ind);

@@ -1,5 +1,5 @@
 import { LOCATIONS, type Action, type Card, type IndustryType } from '@brassline/engine';
-import type { Interaction } from '../game/interactions';
+import { cardChoices, type Interaction } from '../game/interactions';
 import { cardLabel } from './Hand';
 import { describe, linkName } from './Log';
 import { IND_NAME } from './PlayerPanel';
@@ -9,6 +9,9 @@ const TYPES: { t: Action['type']; label: string }[] = [
   { t: 'sell', label: '卖货' }, { t: 'loan', label: '贷款' }, { t: 'scout', label: '侦察' }, { t: 'pass', label: '跳过' },
 ];
 const TYPE_NAME = Object.fromEntries(TYPES.map(({ t, label }) => [t, label])) as Record<Action['type'], string>;
+
+/** Solo 建造的两个选卡按钮（spec 2026-11-05 §3）。 */
+const SOLO_CARD_LABEL: Record<string, string> = { 'solo-industry': '网络内建造', 'solo-permit-0': '用许可证（任意地点）' };
 
 /** confirm 阶段同目标多个变体的区分标签。 */
 function variantLabel(a: Action, hand: Card[]): string {
@@ -34,9 +37,12 @@ function variantLabel(a: Action, hand: Card[]): string {
   }
 }
 
-export function ActionBar({ ui, hand, onType, onDevelop, onDone, onVariant, onConfirm, onCancel }: {
+export function ActionBar({ ui, hand, solo = false, onType, onCard, onDevelop, onDone, onVariant, onConfirm, onCancel }: {
   ui: Interaction;
   hand: Card[];
+  /** solo：去掉侦察；card 步骤用按钮代替手牌。 */
+  solo?: boolean;
+  onCard?(cardId: string): void;
   onType(t: Action['type']): void;
   onDevelop(ind: IndustryType): void;
   onDone(): void;
@@ -52,10 +58,17 @@ export function ActionBar({ ui, hand, onType, onDevelop, onDone, onVariant, onCo
   const canFinish = ui.step === 'target' && ui.picked.length > 0 && ui.chosen !== null;
   return (
     <div className="actionbar">
-      {ui.step === 'type' && TYPES.map(({ t, label }) => (
+      {ui.step === 'type' && TYPES.filter(({ t }) => !(solo && t === 'scout')).map(({ t, label }) => (
         <button key={t} disabled={!available.has(t)} onClick={() => onType(t)}>{label}</button>
       ))}
-      {ui.step === 'card' && <span>{TYPE_NAME[ui.type!]}：选一张要弃的卡{ui.type === 'scout' ? '（另两张在确认时可切换）' : ''}</span>}
+      {ui.step === 'card' && solo && (
+        <span>
+          {TYPE_NAME[ui.type!]}：{cardChoices(ui).map((id) => (
+            <button key={id} onClick={() => onCard?.(id)}>{SOLO_CARD_LABEL[id] ?? id}</button>
+          ))}
+        </span>
+      )}
+      {ui.step === 'card' && !solo && <span>{TYPE_NAME[ui.type!]}：选一张要弃的卡{ui.type === 'scout' ? '（另两张在确认时可切换）' : ''}</span>}
       {ui.step === 'target' && ui.type === 'develop' && (
         <span>
           移除（{ui.picked.length}/2）：{[...devInds].map((ind) => (

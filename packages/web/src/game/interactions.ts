@@ -53,7 +53,7 @@ export function reduce(ui: Interaction, ev: UiEvent): Interaction {
     case 'type': {
       const candidates = ui.legal.filter((a) => a.type === ev.type);
       if (candidates.length === 0) return ui;
-      return { ...start(ui.legal, ui.state), step: 'card', type: ev.type, candidates };
+      return soloAutoCard({ ...start(ui.legal, ui.state), step: 'card', type: ev.type, candidates });
     }
     case 'card': {
       if (ui.step !== 'card') return ui;
@@ -88,6 +88,23 @@ export function reduce(ui: Interaction, ev: UiEvent): Interaction {
       return a ? { ...ui, chosen: a } : ui;
     }
   }
+}
+
+/** card 步骤里可选的卡 id（去重，按 candidates 首次出现顺序）。 */
+export function cardChoices(ui: Interaction): string[] {
+  if (ui.step !== 'card') return [];
+  return [...new Set(ui.candidates.map(cardOf))];
+}
+
+/**
+ * Solo（spec 2026-11-05 §3）：选卡步骤自动跳过——只有一张合成卡（solo-industry）可用时直接用它。
+ * 建造且有许可证时（solo-industry + solo-permit-0 两个选项）保持在 card 步骤，由界面给出两个按钮。
+ * 非 solo 或不在 card 步骤原样返回。
+ */
+export function soloAutoCard(ui: Interaction): Interaction {
+  if (ui.step !== 'card' || ui.state?.rules.solo !== true) return ui;
+  const cards = cardChoices(ui);
+  return cards.length === 1 ? reduce(ui, { kind: 'card', cardId: cards[0]! }) : ui;
 }
 
 /** 同一目标多个变体时，优先显式 slotIndex 与所点槽一致的 build。 */

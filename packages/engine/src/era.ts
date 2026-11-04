@@ -18,6 +18,7 @@ import { LINK_EXTRA_ENDPOINTS, LINKS, MERCHANTS } from './data/board.js';
 import { incomeLevelAt } from './data/income.js';
 import { createRng } from './rng.js';
 import { soloHand } from './solo-hand.js';
+import { SOLO_ERA_PERMIT } from './data/solo.js';
 import type { GameState } from './state.js';
 import type { LocationId, MerchantId, PlayerIndex } from './types.js';
 
@@ -122,7 +123,10 @@ function canalToRail(state: GameState): GameState {
       era: 'rail',
       round: 1,
       eraEndPending: false,
-      players: next.players.map((p) => ({ ...p, hand: soloHand(p.permits ?? 0) })),
+      players: next.players.map((p) => {
+        const permits = (p.permits ?? 0) + SOLO_ERA_PERMIT;
+        return { ...p, permits, hand: soloHand(permits) };
+      }),
     };
   }
   next = reshuffleAndDeal(next);

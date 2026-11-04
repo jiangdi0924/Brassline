@@ -10,7 +10,7 @@ import { PlayerPanel } from './hud/PlayerPanel';
 import { Hand } from './hud/Hand';
 import { ActionBar } from './hud/ActionBar';
 import { Log } from './hud/Log';
-import { Overlay } from './hud/Overlay';
+import { Overlay, soloGameOverText } from './hud/Overlay';
 import type { LogEntry } from './hud/Log';
 import { PlotPanel } from './plot/PlotPanel';
 import { plotKey } from './game/store';
@@ -50,7 +50,9 @@ export function App() {
     if (!st) { setUi(null); return; }
     saveToLocalStorage(gameStore);
     if (before && before.era === 'canal' && st.era === 'rail') {
-      setEraNotice('运河时代结束：已计分，所有 1 级板块和运河被移除，重新发牌。\n铁路时代开始。');
+      setEraNotice(st.rules.solo
+        ? '运河时代结束：已计分，所有 1 级板块和运河被移除。\n铁路时代开始（重新从第 1/8 轮计）：区域需求上升，每轮末要拿走煤 3–4 · 铁 2 · 啤酒 1–2。'
+        : '运河时代结束：已计分，所有 1 级板块和运河被移除，重新发牌。\n铁路时代开始。');
     }
     const humanTurn = st.phase !== 'game-over' && !gameStore.getState().isBotTurn();
     setUi(humanTurn ? start(gameStore.getState().legal(), st) : null);
@@ -78,9 +80,11 @@ export function App() {
   if (!s.state) {
     const startGame = (playerCount: 2 | 3 | 4, seats: Seat[]) =>
       s.newGame({ playerCount, seed: Date.now() % 1_000_000, seats, innerLayer });
+    const startSolo = () => s.newGame({ solo: true, seed: Date.now() % 1_000_000, innerLayer });
     return (
       <div className="lobby">
         <h1>Brassline</h1>
+        <button onClick={startSolo}>单人：对抗区域需求</button>
         <button onClick={() => startGame(2, ['human', 'bot'])}>2 人：我 vs 机器人</button>
         <button onClick={() => startGame(2, ['human', 'human'])}>2 人热座</button>
         <button onClick={() => startGame(3, ['human', 'bot', 'bot'])}>3 人：我 vs 两个机器人</button>
@@ -99,6 +103,7 @@ export function App() {
   const me = cur !== null ? state.players[cur]! : null;
   const usable = new Set(ui?.step === 'card' ? ui.candidates.map((a) => (a.type === 'scout' ? a.cardIds[0] : a.cardId)) : []);
   const send = (ev: UiEvent) => ui && setUi(reduce(ui, ev));
+  const solo = state.rules.solo === true;
   const gated = humans > 1 && revealedKey !== turnKey(state);
   // 谁在看：当前人类玩家；单人对机器人时机器人回合里也算那个人类。
   const viewer = cur !== null && s.seats[cur] === 'human' ? cur : humans === 1 ? s.seats.indexOf('human') : null;
@@ -143,6 +148,8 @@ export function App() {
               <ActionBar
                 ui={ui}
                 hand={me.hand}
+                solo={solo}
+                onCard={(id) => send({ kind: 'card', cardId: id })}
                 onType={(t) => send({ kind: 'type', type: t })}
                 onDevelop={(ind) => send({ kind: 'pick', target: { kind: 'location', id: `industry:${ind}` } })}
                 onDone={() => send({ kind: 'done' })}
@@ -150,7 +157,14 @@ export function App() {
                 onConfirm={confirm}
                 onCancel={() => send({ kind: 'cancel' })}
               />
-              <Hand cards={me.hand} usable={usable} hidden={false} onPick={(id) => send({ kind: 'card', cardId: id })} />
+              {solo ? (
+                <div className="solo-hint">
+                  <span className="badge">许可证 ×{me.permits ?? 0}</span>
+                  建造：网络内任意产业；有许可证可建任意地点（卖货每翻面一块板块得 1 张许可证）
+                </div>
+              ) : (
+                <Hand cards={me.hand} usable={usable} hidden={false} onPick={(id) => send({ kind: 'card', cardId: id })} />
+              )}
             </>
           )}
         </div>
@@ -160,7 +174,7 @@ export function App() {
       {state.phase === 'game-over' && !eraNotice && (
         <Overlay
           title="终局"
-          body={state.players.map((p, i) => `P${i + 1}: ${p.vp} VP`).join('\n') + `\n胜者：${state.winner?.map((w) => `P${w + 1}`).join('、') ?? '—'}`}
+          body={solo ? soloGameOverText(state.players[0]!.vp) : state.players.map((p, i) => `P${i + 1}: ${p.vp} VP`).join('\n') + `\n胜者：${state.winner?.map((w) => `P${w + 1}`).join('、') ?? '—'}`}
           button="再来一局"
           onClick={quit}
         />

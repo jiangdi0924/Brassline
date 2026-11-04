@@ -41,3 +41,5 @@ button.primary { background: #c8102e; color: #fff; border: none; }
 .tile-count { font-size: 11px; color: #fff; background: rgba(43,37,32,.85); padding: 0 4px; border-radius: 3px; }
 .notice { color: #2e6d3f; }
 .lobby label { display: flex; gap: 6px; align-items: center; justify-content: center; }
+.solo-hint { color: #fff; display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.solo-hint .badge { background: #f5efe0; color: #2b2520; border-radius: 4px; padding: 4px 10px; font-weight: bold; }

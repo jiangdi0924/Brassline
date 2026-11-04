@@ -28,6 +28,7 @@ import {
   IRON_MARKET_INITIAL_FILLED,
 } from './data/market.js';
 import { INCOME_START_SPACE } from './data/income.js';
+import { SOLO_STARTING_PERMITS } from './data/solo.js';
 import { createRng } from './rng.js';
 import { soloHand } from './solo-hand.js';
 
@@ -172,7 +173,7 @@ export function newGame(
   let discard: Card[] = [];
   let deck: Card[] = [];
   if (isSolo) {
-    hands.push(soloHand(0));
+    hands.push(soloHand(SOLO_STARTING_PERMITS));
   } else {
     const shuffled = rng.shuffle(buildDeck(boardCount));
     let cursor = 0;
@@ -220,7 +221,7 @@ export function newGame(
     incomeSpace: INCOME_START_SPACE,
     vp: 0,
     spentThisRound: 0,
-    ...(isSolo ? { permits: 0 } : {}),
+    ...(isSolo ? { permits: SOLO_STARTING_PERMITS } : {}),
   }));
 
   return {

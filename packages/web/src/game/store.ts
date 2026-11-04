@@ -7,6 +7,7 @@ import {
   newGame as engineNewGame,
   spendMoney,
   type Action,
+  type GameEvent,
   type GameState,
   type PlacedTile,
   type PlayerIndex,
@@ -33,7 +34,7 @@ export type Seat = 'human' | 'bot';
 /** 旧格式：行动日志，读档时重放。 */
 export interface SaveV1 {
   version: 1;
-  playerCount: 2 | 3 | 4;
+  playerCount: 1 | 2 | 3 | 4;
   seed: number;
   seats: Seat[];
   actions: Action[];
@@ -71,6 +72,29 @@ export function plotTitle(location: string, kind: PlotKind): string {
 
 function sameTile(a: PlacedTile | null | undefined, b: PlacedTile): boolean {
   return !!a && a.player === b.player && a.tile.industry === b.tile.industry && a.tile.level === b.tile.level;
+}
+
+const NPC_INDUSTRY_NAME: Record<'coal' | 'iron' | 'brewery', string> = { coal: '煤矿', iron: '铁厂', brewery: '酿酒厂' };
+const NPC_ITEM_NAME: Record<'coal' | 'iron' | 'brewery', string> = { coal: '煤', iron: '铁', brewery: '啤酒' };
+
+/**
+ * Solo 轮末 NPC 需求通知（spec 2026-11-05 §3）："区域消耗 Dudley 煤矿 2 煤，煤矿翻面，收入 +4"。
+ * 翻面时引擎在 npc-consume 后紧跟一条 flip 事件，收入前进取自它。
+ */
+export function npcNotices(events: readonly GameEvent[]): string[] {
+  const out: string[] = [];
+  events.forEach((e, i) => {
+    if (e.kind !== 'npc-consume') return;
+    const kind = NPC_INDUSTRY_NAME[e.industry];
+    let text = `区域消耗 ${LOCATIONS[e.location]?.name ?? e.location} ${kind} ${e.count} ${NPC_ITEM_NAME[e.industry]}`;
+    if (e.flipped) {
+      const f = events[i + 1];
+      text += `，${kind}翻面`;
+      if (f && f.kind === 'flip' && f.location === e.location) text += `，收入 +${f.incomeAdvance}`;
+    }
+    out.push(text);
+  });
+  return out;
 }
 
 export interface FactoryAdvance {
@@ -139,7 +163,8 @@ export interface GameStore {
   /** 每次外层行动推进厂区后 +1（编辑厂区不变）。 */
   plotVersion: number;
   notices: Notice[];
-  newGame(opts: { playerCount: 2 | 3 | 4; seed: number; seats: Seat[]; innerLayer?: boolean }): void;
+  /** solo: true → 单人对抗区域需求（playerCount 1、座位 ['human']，忽略传入的 playerCount/seats）。 */
+  newGame(opts: { playerCount?: 1 | 2 | 3 | 4; seed: number; seats?: Seat[]; innerLayer?: boolean; solo?: boolean }): void;
   apply(action: Action): void;
   currentPlayer(): PlayerIndex | null;
   legal(): Action[];
@@ -191,10 +216,16 @@ export function createGameStore(): StoreApi<GameStore> {
       plotsBefore: {},
       plotVersion: 0,
       notices: [],
-      newGame({ playerCount, seed, seats, innerLayer = false }) {
+      newGame({ playerCount = 2, seed, seats = ['human', 'human'], innerLayer = false, solo = false }) {
+        if (solo) {
+          playerCount = 1;
+          seats = ['human'];
+        }
         resetBots(seed, seats);
         set({
-          state: engineNewGame(playerCount, seed, { innerLayer }),
+          state: solo
+            ? engineNewGame(1, seed, { solo: true, innerLayer })
+            : engineNewGame(playerCount, seed, { innerLayer }),
           log: [],
           actors: [],
           seed,
@@ -212,6 +243,9 @@ export function createGameStore(): StoreApi<GameStore> {
         const after = applyAction(state, action);
         const adv = advanceFactories(state, after, plots);
         const at = log.length + 1;
+        // 引擎每个行动都重写 lastEvents；同一引用说明没有新事件（防重复）。
+        const npc = after.rules.solo && after.lastEvents !== state.lastEvents ? npcNotices(after.lastEvents) : [];
+        const added = [...npc, ...adv.notices];
         set({
           state: adv.state,
           log: [...log, action],
@@ -219,7 +253,7 @@ export function createGameStore(): StoreApi<GameStore> {
           plots: adv.plots,
           plotsBefore: adv.before,
           plotVersion: plotVersion + 1,
-          notices: adv.notices.length ? [...notices, ...adv.notices.map((text) => ({ at, text }))] : notices,
+          notices: added.length ? [...notices, ...added.map((text) => ({ at, text }))] : notices,
         });
       },
       currentPlayer() {

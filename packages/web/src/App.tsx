@@ -11,6 +11,9 @@ import { Hand } from './hud/Hand';
 import { ActionBar } from './hud/ActionBar';
 import { Log } from './hud/Log';
 import { Overlay } from './hud/Overlay';
+import type { LogEntry } from './hud/Log';
+import { PlotPanel } from './plot/PlotPanel';
+import { plotKey } from './game/store';
 
 const EMPTY_HL: Highlights = { slots: new Set(), links: new Set(), merchants: new Set() };
 
@@ -35,6 +38,8 @@ export function App() {
   const [ui, setUi] = useState<Interaction | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [eraNotice, setEraNotice] = useState<string | null>(null);
+  const [innerLayer, setInnerLayer] = useState(true);
+  const [openPlot, setOpenPlot] = useState<string | null>(null);
   const prev = useRef<GameState | null>(null);
 
   // 每次状态变化：重置选择、存档、检测时代切换。
@@ -64,14 +69,15 @@ export function App() {
 
   const quit = () => {
     try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
-    gameStore.setState({ state: null, log: [], actors: [], seats: [] });
+    gameStore.setState({ state: null, log: [], actors: [], seats: [], plots: {}, plotsBefore: {}, notices: [] });
+    setOpenPlot(null);
     setEraNotice(null);
     setRevealedKey(null);
   };
 
   if (!s.state) {
     const startGame = (playerCount: 2 | 3 | 4, seats: Seat[]) =>
-      s.newGame({ playerCount, seed: Date.now() % 1_000_000, seats });
+      s.newGame({ playerCount, seed: Date.now() % 1_000_000, seats, innerLayer });
     return (
       <div className="lobby">
         <h1>Brassline</h1>
@@ -80,6 +86,10 @@ export function App() {
         <button onClick={() => startGame(3, ['human', 'bot', 'bot'])}>3 人：我 vs 两个机器人</button>
         <button onClick={() => startGame(4, ['human', 'human', 'human', 'human'])}>4 人热座</button>
         <button onClick={() => startGame(2, ['bot', 'bot'])}>两机器人对战（观战）</button>
+        <label>
+          <input type="checkbox" checked={innerLayer} onChange={(e) => setInnerLayer(e.target.checked)} />
+          厂区内层（煤矿/铁厂/酿酒厂由产线逐步交付）
+        </label>
       </div>
     );
   }
@@ -89,13 +99,30 @@ export function App() {
   const me = cur !== null ? state.players[cur]! : null;
   const usable = new Set(ui?.step === 'card' ? ui.candidates.map((a) => (a.type === 'scout' ? a.cardIds[0] : a.cardId)) : []);
   const send = (ev: UiEvent) => ui && setUi(reduce(ui, ev));
-  const onPick = (t: PickTarget) => send({ kind: 'pick', target: t });
+  const gated = humans > 1 && revealedKey !== turnKey(state);
+  // 谁在看：当前人类玩家；单人对机器人时机器人回合里也算那个人类。
+  const viewer = cur !== null && s.seats[cur] === 'human' ? cur : humans === 1 ? s.seats.indexOf('human') : null;
+  const onPick = (t: PickTarget) => {
+    if (t.kind === 'slot' && ui?.step !== 'target' && viewer !== null && !gated) {
+      const tile = state.board.slots[t.id]?.[t.slotIndex];
+      const key = plotKey(t.id, t.slotIndex);
+      if (tile && tile.player === viewer && s.plots[key]) {
+        setOpenPlot(key);
+        return;
+      }
+    }
+    send({ kind: 'pick', target: t });
+  };
   const confirm = () => {
     // chosen 永远是 enumerateActions 返回的对象之一；引擎 applyAction 仍会再校验一次。
     if (ui?.step === 'confirm' && ui.chosen) s.apply(ui.chosen);
   };
-  const gated = humans > 1 && revealedKey !== turnKey(state);
-  const log = s.log.map((action, i) => ({ player: s.actors[i] ?? 0, action }));
+  const log: LogEntry[] = [];
+  let ni = 0;
+  for (let i = 0; i <= s.log.length; i++) {
+    while (ni < s.notices.length && s.notices[ni]!.at <= i) log.push({ text: s.notices[ni++]!.text });
+    if (i < s.log.length) log.push({ player: s.actors[i] ?? 0, action: s.log[i]! });
+  }
 
   return (
     <div className="app">
@@ -128,6 +155,7 @@ export function App() {
           )}
         </div>
       )}
+      {openPlot && <PlotPanel s={s} plotKey={openPlot} onClose={() => setOpenPlot(null)} />}
       {eraNotice && <Overlay title="时代切换" body={eraNotice} button="继续" onClick={() => setEraNotice(null)} />}
       {state.phase === 'game-over' && !eraNotice && (
         <Overlay

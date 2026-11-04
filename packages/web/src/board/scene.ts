@@ -138,9 +138,9 @@ export class BoardScene {
   /** 按状态重建动态物体：板块、资源、Link 颜色。每次行动后调用一次，开销可忽略。 */
   update(state: GameState, hl: Highlights): void {
     for (const o of this.tileGroup.children) {
-      const m = o as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
+      if (!(o instanceof THREE.Mesh)) continue; // CSS2DObject 在 removed 时自行移除 DOM
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
     }
     this.tileGroup.clear();
     for (const [id, slots] of Object.entries(state.board.slots)) {
@@ -171,6 +171,15 @@ export class BoardScene {
           );
           cube.position.copy(box.position).add(new THREE.Vector3(-0.25 + (r % 3) * 0.25, 0.42 + Math.floor(r / 3) * 0.2, 0.45));
           this.tileGroup.add(cube);
+        }
+        if (t.deposit !== undefined && !t.flipped) {
+          // 内层产线：库存/矿量
+          const div = document.createElement('div');
+          div.className = 'tile-count';
+          div.textContent = `${t.resources}/${t.deposit}`;
+          const label = new CSS2DObject(div);
+          label.position.copy(box.position).add(new THREE.Vector3(0, 0.9, 0));
+          this.tileGroup.add(label);
         }
       });
     }

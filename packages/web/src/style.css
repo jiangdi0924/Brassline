@@ -28,3 +28,16 @@ button.primary { background: #c8102e; color: #fff; border: none; }
 /* HUD 盖在 CSS2D 地名标签之上 */
 .topbar, .markets, .players, .log, .bottom { z-index: 10; }
 .overlay { z-index: 20; }
+.plot-panel { position: absolute; left: 8px; top: 200px; z-index: 15; background: rgba(255,255,255,.96); padding: 10px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 13px; display: flex; flex-direction: column; gap: 6px; max-width: calc(100vw - 32px); }
+.plot-head { display: flex; gap: 12px; align-items: center; }
+.plot-head button { margin-left: auto; padding: 4px 10px; }
+.plot-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.plot-body { display: flex; gap: 8px; align-items: flex-start; }
+.plot-body canvas { cursor: crosshair; border: 1px solid #998; max-width: 100%; }
+.plot-tools { display: flex; flex-direction: column; gap: 4px; }
+.plot-tools button { font-size: 13px; padding: 5px 8px; text-align: left; }
+.plot-tools button.on { background: #2b2520; color: #fff; }
+.plot-msg { color: #a33; min-height: 1.2em; }
+.tile-count { font-size: 11px; color: #fff; background: rgba(43,37,32,.85); padding: 0 4px; border-radius: 3px; }
+.notice { color: #2e6d3f; }
+.lobby label { display: flex; gap: 6px; align-items: center; justify-content: center; }

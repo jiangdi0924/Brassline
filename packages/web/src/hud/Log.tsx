@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { LINKS, LOCATIONS, type Action, type IndustryType } from '@brassline/engine';
 import { IND_NAME } from './PlayerPanel';
 
@@ -22,13 +23,22 @@ export function describe(a: Action): string {
   }
 }
 
-export interface LogEntry { player: number; action: Action }
+/** 行动行，或内层交付等纯文本行（P3 §3）。 */
+export type LogEntry = { player: number; action: Action } | { text: string };
 
 export function Log({ log }: { log: LogEntry[] }) {
-  const start = Math.max(0, log.length - 12);
+  const start = Math.max(0, log.length - 14);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [log.length]);
   return (
-    <div className="log">
-      {log.slice(start).map((e, i) => <div key={start + i}>P{e.player + 1}：{describe(e.action)}</div>)}
+    <div className="log" ref={ref}>
+      {log.slice(start).map((e, i) =>
+        'text' in e
+          ? <div key={start + i} className="notice">· {e.text}</div>
+          : <div key={start + i}>P{e.player + 1}：{describe(e.action)}</div>,
+      )}
     </div>
   );
 }
